@@ -13,32 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Header Files\iCUE">
-      <UniqueIdentifier>{1ea43e64-db35-4b28-91a3-d19241004274}</UniqueIdentifier>
+    <Filter Include="iCUE">
+      <UniqueIdentifier>{4cfc1905-0512-4186-a4f5-ee54a39bb9ea}</UniqueIdentifier>
     </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="framework.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="targetver.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="statCUE.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="iCUESDK\iCUESDK.h">
-      <Filter>Header Files\iCUE</Filter>
-    </ClInclude>
-    <ClInclude Include="iCUESDK\iCUESDKGlobal.h">
-      <Filter>Header Files\iCUE</Filter>
-    </ClInclude>
-    <ClInclude Include="iCUESDK\iCUESDKLedIdEnum.h">
-      <Filter>Header Files\iCUE</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="statCUE.cpp">
@@ -46,16 +23,14 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="statCUE.rc">
-      <Filter>Resource Files</Filter>
-    </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="small.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="statCUE.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
+    <ClInclude Include="iCUESDK\iCUESDK.h">
+      <Filter>iCUE</Filter>
+    </ClInclude>
+    <ClInclude Include="iCUESDK\iCUESDKGlobal.h">
+      <Filter>iCUE</Filter>
+    </ClInclude>
+    <ClInclude Include="iCUESDK\iCUESDKLedIdEnum.h">
+      <Filter>iCUE</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

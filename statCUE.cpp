@@ -36,16 +36,31 @@ int main() {
 		double used = memInfo.dwMemoryLoad;
 
 		if (corsair_ram.id[0]) {
+			CorsairLedPosition* leds = (CorsairLedPosition*)malloc(sizeof(CorsairLedPosition) * corsair_ram.ledCount);
+			int size = 0;
+			err = CorsairGetLedPositions(corsair_ram.id, CORSAIR_DEVICE_LEDCOUNT_MAX, leds, &size);
+
 			// TODO handle all frees and stuff
 			CorsairLedColor* colors = (CorsairLedColor*)malloc(sizeof(CorsairLedColor)*corsair_ram.ledCount);
+
 			ZeroMemory(colors, sizeof(CorsairLedColor) * corsair_ram.ledCount);
 			for (size_t i = 0; i < corsair_ram.ledCount; i++)
 			{
-				colors[i].id = i;
+				colors[i].id = leds[i].id;
+				colors[i].r = 255;
+				colors[i].a = 255;
 			}
 
 			err = CorsairSetLedColors(corsair_ram.id, corsair_ram.ledCount, colors);
 			int x = 0;
+			//Sleep(3000);
+			//ZeroMemory(colors, sizeof(CorsairLedColor) * corsair_ram.ledCount);
+			//for (size_t i = 0; i < corsair_ram.ledCount; i++)
+			//{
+			//	colors[i].id = i;
+			//}
+			//err = CorsairGetLedColors(corsair_ram.id, corsair_ram.ledCount, colors);
+			//x = 0;
 		}
 		Sleep(1000);
 	}

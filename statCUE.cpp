@@ -48,7 +48,209 @@ int main() {
 	);
 	if (FAILED(hr)) return 1;
 
-
+	// Load and compile the compute shader
+    ID3DBlob* shaderBlob = nullptr;
+    ID3DBlob* errorBlob = nullptr;
+    
+    hr = D3DCompileFromFile(
+        L"ComputeShader.hlsl",      // Shader file
+        nullptr,                    // Defines
+        D3D_COMPILE_STANDARD_FILE_INCLUDE, // Include handler
+        "main",                   // Entry point
+        "cs_5_0",                   // Target
+        D3DCOMPILE_ENABLE_STRICTNESS, // Flags1
+        0,                          // Flags2
+        &shaderBlob,                // Output shader blob
+        &errorBlob                  // Output error blob
+    );
+    
+    if (FAILED(hr)) {
+        if (errorBlob) {
+            // OutputError(static_cast<char*>(errorBlob->GetBufferPointer()));
+            errorBlob->Release();
+        } else {
+            // OutputError("Failed to compile shader (unknown error)");
+        }
+        
+        if (device) device->Release();
+        if (context) context->Release();
+        return 1;
+    }
+    
+    // Create the compute shader
+    ID3D11ComputeShader* computeShader = nullptr;
+    hr = device->CreateComputeShader(
+        shaderBlob->GetBufferPointer(),
+        shaderBlob->GetBufferSize(),
+        nullptr,
+        &computeShader
+    );
+    
+    shaderBlob->Release();
+    
+    if (FAILED(hr)) {
+        // OutputError("Failed to create compute shader");
+        if (device) device->Release();
+        if (context) context->Release();
+        return 1;
+    }
+    
+    // Create output buffer
+    D3D11_BUFFER_DESC outputDesc = {};
+    outputDesc.ByteWidth = pixelCount * sizeof(DirectX::XMFLOAT4);
+    outputDesc.Usage = D3D11_USAGE_DEFAULT;
+    outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+    outputDesc.CPUAccessFlags = 0;
+    outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    outputDesc.StructureByteStride = sizeof(DirectX::XMFLOAT4);
+    
+    ID3D11Buffer* outputBuffer = nullptr;
+    hr = device->CreateBuffer(&outputDesc, nullptr, &outputBuffer);
+    
+    if (FAILED(hr)) {
+        // OutputError("Failed to create output buffer");
+        computeShader->Release();
+        if (device) device->Release();
+        if (context) context->Release();
+        return 1;
+    }
+    
+    // Create UAV for output buffer
+    D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+    uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+    uavDesc.Buffer.FirstElement = 0;
+    uavDesc.Buffer.NumElements = pixelCount;
+    uavDesc.Buffer.Flags = 0;
+    
+    ID3D11UnorderedAccessView* outputUAV = nullptr;
+    hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAV);
+    
+    if (FAILED(hr)) {
+        // OutputError("Failed to create UAV");
+        outputBuffer->Release();
+        computeShader->Release();
+        if (device) device->Release();
+        if (context) context->Release();
+        return 1;
+    }
+    
+    // Create constant buffer for parameters
+    D3D11_BUFFER_DESC constantDesc = {};
+    constantDesc.ByteWidth = sizeof(ShaderParameters);
+    constantDesc.Usage = D3D11_USAGE_DYNAMIC;
+    constantDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    constantDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    constantDesc.MiscFlags = 0;
+    
+    ID3D11Buffer* constantBuffer = nullptr;
+    hr = device->CreateBuffer(&constantDesc, nullptr, &constantBuffer);
+    
+    if (FAILED(hr)) {
+        // OutputError("Failed to create constant buffer");
+        outputUAV->Release();
+        outputBuffer->Release();
+        computeShader->Release();
+        if (device) device->Release();
+        if (context) context->Release();
+        return 1;
+    }
+    
+    // Create staging buffer for reading back results
+    D3D11_BUFFER_DESC stagingDesc = {};
+    stagingDesc.ByteWidth = pixelCount * sizeof(DirectX::XMFLOAT4);
+    stagingDesc.Usage = D3D11_USAGE_STAGING;
+    stagingDesc.BindFlags = 0;
+    stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    stagingDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    stagingDesc.StructureByteStride = sizeof(DirectX::XMFLOAT4);
+    
+    ID3D11Buffer* stagingBuffer = nullptr;
+    hr = device->CreateBuffer(&stagingDesc, nullptr, &stagingBuffer);
+    
+    if (FAILED(hr)) {
+        // OutputError("Failed to create staging buffer");
+        constantBuffer->Release();
+        outputUAV->Release();
+        outputBuffer->Release();
+        computeShader->Release();
+        if (device) device->Release();
+        if (context) context->Release();
+        return 1;
+    }
+    
+    // Set up parameters
+    ShaderParameters params = {};
+    params.time = 1.0f;  // Set time to 1.0 for this example
+    params.resolution = DirectX::XMFLOAT2(static_cast<float>(width), static_cast<float>(height));
+    
+    // Update constant buffer
+    D3D11_MAPPED_SUBRESOURCE mappedResource;
+    hr = context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+    
+    if (SUCCEEDED(hr)) {
+        memcpy(mappedResource.pData, &params, sizeof(ShaderParameters));
+        context->Unmap(constantBuffer, 0);
+    } else {
+        // OutputError("Failed to map constant buffer");
+        stagingBuffer->Release();
+        constantBuffer->Release();
+        outputUAV->Release();
+        outputBuffer->Release();
+        computeShader->Release();
+        if (device) device->Release();
+        if (context) context->Release();
+        return 1;
+    }
+    
+    // Set up compute shader
+    context->CSSetShader(computeShader, nullptr, 0);
+    context->CSSetConstantBuffers(0, 1, &constantBuffer);
+    context->CSSetUnorderedAccessViews(0, 1, &outputUAV, nullptr);
+    
+    // Dispatch compute shader
+    // Each thread group is 16x16, so we need to calculate how many groups to dispatch
+    UINT groupsX = (width + 15) / 16;
+    UINT groupsY = (height + 15) / 16;
+    context->Dispatch(groupsX, groupsY, 1);
+    
+    // Unbind resources
+    ID3D11UnorderedAccessView* nullUAV = nullptr;
+    context->CSSetUnorderedAccessViews(0, 1, &nullUAV, nullptr);
+    
+    // Copy results to staging buffer for reading
+    context->CopyResource(stagingBuffer, outputBuffer);
+    
+    // Read back results
+    hr = context->Map(stagingBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
+    
+    if (SUCCEEDED(hr)) {
+        // Get data pointer
+        DirectX::XMFLOAT4* data = static_cast<DirectX::XMFLOAT4*>(mappedResource.pData);
+        
+        // For this example, we'll just output the first few pixels' colors
+        std::cout << "First 5 pixel colors:" << std::endl;
+        for (int i = 0; i < 5; i++) {
+            std::cout << "Pixel " << i << ": R=" << data[i].x << ", G=" << data[i].y 
+                     << ", B=" << data[i].z << ", A=" << data[i].w << std::endl;
+        }
+        
+        // In a real application, you would pass this data to your C library
+        // c_library_process_image(data, width, height);
+        
+        context->Unmap(stagingBuffer, 0);
+    } else {
+        // OutputError("Failed to map staging buffer");
+    }
+    
+    // Clean up resources
+    stagingBuffer->Release();
+    constantBuffer->Release();
+    outputUAV->Release();
+    outputBuffer->Release();
+    computeShader->Release();
+    if (device) device->Release();
+    if (context) context->Release();
 
 	CorsairError err = CorsairConnect(stateChange, NULL);
 

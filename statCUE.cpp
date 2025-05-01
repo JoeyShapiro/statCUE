@@ -2,6 +2,9 @@
 #include <psapi.h>
 #include "iCUESDK/iCUESDK.h"
 
+#include <d3d11.h>
+#include <d3dcompiler.h>
+
 static CorsairDeviceInfo corsair_ram;
 
 void stateChange(void* context, const CorsairSessionStateChanged* event) {
@@ -25,6 +28,27 @@ void stateChange(void* context, const CorsairSessionStateChanged* event) {
 int main() {
 	HWND hWnd = GetConsoleWindow();
 	ShowWindow(hWnd, SW_HIDE);
+
+	ID3D11Device* device = nullptr;
+	ID3D11DeviceContext* context = nullptr;
+	D3D_FEATURE_LEVEL featureLevel;
+	UINT flags = 0;
+
+	HRESULT hr = D3D11CreateDevice(
+		nullptr,
+		D3D_DRIVER_TYPE_HARDWARE,
+		nullptr,
+		flags,
+		nullptr,
+		0,
+		D3D11_SDK_VERSION,
+		&device,
+		&featureLevel,
+		&context
+	);
+	if (FAILED(hr)) return 1;
+
+
 
 	CorsairError err = CorsairConnect(stateChange, NULL);
 

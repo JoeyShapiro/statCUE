@@ -7,6 +7,19 @@
 
 static CorsairDeviceInfo corsair_ram;
 
+struct ShaderParameters {
+    UINT elementCount;
+    float usage;
+    float time;
+};
+
+struct Color {
+    float r;
+    float g;
+    float b;
+    float a;
+};
+
 void stateChange(void* context, const CorsairSessionStateChanged* event) {
 	if (event->state != CSS_Connected) return;
 
@@ -56,7 +69,7 @@ int main() {
     ID3DBlob* errorBlob = nullptr;
     
     hr = D3DCompileFromFile(
-        L"ComputeShader1D.hlsl",
+        L"ComputeShader.hlsl",
         nullptr,
         D3D_COMPILE_STANDARD_FILE_INCLUDE,
         "main",
@@ -95,7 +108,7 @@ int main() {
     
     // Create output buffer
     D3D11_BUFFER_DESC outputDesc = {};
-    outputDesc.ByteWidth = elementCount * sizeof(float);
+    outputDesc.ByteWidth = 20 * sizeof(float);
     outputDesc.Usage = D3D11_USAGE_DEFAULT;
     outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
     outputDesc.CPUAccessFlags = 0;
@@ -117,7 +130,7 @@ int main() {
     uavDesc.Format = DXGI_FORMAT_UNKNOWN;
     uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
     uavDesc.Buffer.FirstElement = 0;
-    uavDesc.Buffer.NumElements = elementCount;
+    uavDesc.Buffer.NumElements = 20;
     uavDesc.Buffer.Flags = 0;
     
     ID3D11UnorderedAccessView* outputUAV = nullptr;
@@ -133,7 +146,7 @@ int main() {
     
     // Create constant buffer for parameters
     D3D11_BUFFER_DESC constantDesc = {};
-    constantDesc.ByteWidth = sizeof(ShaderParameters);
+    constantDesc.ByteWidth = 16;// sizeof(ShaderParameters);
     constantDesc.Usage = D3D11_USAGE_DYNAMIC;
     constantDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     constantDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -153,7 +166,7 @@ int main() {
     
     // Create staging buffer for reading back results
     D3D11_BUFFER_DESC stagingDesc = {};
-    stagingDesc.ByteWidth = elementCount * sizeof(float);
+    stagingDesc.ByteWidth = 20 * sizeof(float);
     stagingDesc.Usage = D3D11_USAGE_STAGING;
     stagingDesc.BindFlags = 0;
     stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
@@ -175,7 +188,8 @@ int main() {
     
     // Update parameters
     ShaderParameters params = {};
-    params.elementCount = elementCount;
+    params.elementCount = 20;
+    params.usage = 0.80;
     params.time = 1.0f;  // Set time to 1.0 for this example
     
     D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -202,7 +216,7 @@ int main() {
     
     // Dispatch compute shader
     // Calculate how many thread groups to dispatch (each group has 256 threads)
-    UINT threadGroupCount = (elementCount + 255) / 256;
+    UINT threadGroupCount = (20 + 255) / 256;
     context->Dispatch(threadGroupCount, 1, 1);
     
     // Unbind resources
@@ -217,10 +231,10 @@ int main() {
     
     if (SUCCEEDED(hr)) {
         // Get data pointer
-        float* data = static_cast<float*>(mappedResource.pData);
+        Color* data = static_cast<Color*>(mappedResource.pData);
         
         // Process data with C library function
-        process_data(data, elementCount);
+        auto  x = 0;
         
         context->Unmap(stagingBuffer, 0);
     }

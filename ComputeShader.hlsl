@@ -4,6 +4,7 @@ RWStructuredBuffer<float4> OutputBuffer : register(u0);
 cbuffer Parameters : register(b0)
 {
     uint elementCount;  // Number of elements to process
+	float usage;
     float time;         // Time value for animation or processing
 };
 

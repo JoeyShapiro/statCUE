@@ -3,26 +3,31 @@ RWStructuredBuffer<float4> OutputBuffer : register(u0);
 // Parameters for the shader
 cbuffer Parameters : register(b0)
 {
-    uint elementCount;  // Number of elements to process
+    uint ledCount;  // Number of elements to process
 	float usage;
-    float time;         // Time value for animation or processing
+    dword ticks;         // Time value for animation or processing
+	int  corsairDeviceType;
 };
 
 [numthreads(256, 1, 1)]
 void main( uint3 DTid : SV_DispatchThreadID )
 {
 	// Get our element index from the thread ID
-    uint index = DTid.x;
+    uint i = DTid.x;
     
     // Check if we're within the data bounds
-    if (index >= elementCount)
+    if (i >= ledCount)
         return;
 
 	float4 color;
-	color.r = 255;
+	int sticks = 2;
+	int dim = ((int)(ledCount / sticks));
+	float current = (float)(i % dim) / (ledCount / (sticks));
+
+	color.r = usage > current ? 255 : 0;
 	color.g = 0;
 	color.b = 0;
 	color.a = 255;
 
-	OutputBuffer[index] = color;
+	OutputBuffer[i] = color;
 }

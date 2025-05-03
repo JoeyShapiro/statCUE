@@ -8,9 +8,10 @@
 static CorsairDeviceInfo corsair_ram;
 
 struct ShaderParameters {
-    UINT elementCount;
+    UINT ledCount;
     float usage;
-    float time;
+    DWORD ticks;
+    int corsairDeviceType;
 };
 
 struct Color {
@@ -185,60 +186,93 @@ int main() {
         if (context) context->Release();
         return 1;
     }
-    
-    // Update parameters
-    ShaderParameters params = {};
-    params.elementCount = 20;
-    params.usage = 0.80;
-    params.time = 1.0f;  // Set time to 1.0 for this example
-    
-    D3D11_MAPPED_SUBRESOURCE mappedResource;
-    hr = context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-    
-    if (SUCCEEDED(hr)) {
-        memcpy(mappedResource.pData, &params, sizeof(ShaderParameters));
-        context->Unmap(constantBuffer, 0);
-    } else {
-        stagingBuffer->Release();
-        constantBuffer->Release();
-        outputUAV->Release();
-        outputBuffer->Release();
-        computeShader->Release();
-        if (device) device->Release();
-        if (context) context->Release();
-        return 1;
-    }
-    
-    // Set up compute shader
-    context->CSSetShader(computeShader, nullptr, 0);
-    context->CSSetConstantBuffers(0, 1, &constantBuffer);
-    context->CSSetUnorderedAccessViews(0, 1, &outputUAV, nullptr);
-    
-    // Dispatch compute shader
-    // Calculate how many thread groups to dispatch (each group has 256 threads)
-    UINT threadGroupCount = (20 + 255) / 256;
-    context->Dispatch(threadGroupCount, 1, 1);
-    
-    // Unbind resources
-    ID3D11UnorderedAccessView* nullUAV = nullptr;
-    context->CSSetUnorderedAccessViews(0, 1, &nullUAV, nullptr);
-    
-    // Copy results to staging buffer for reading
-    context->CopyResource(stagingBuffer, outputBuffer);
-    
-    // Read back results
-    hr = context->Map(stagingBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
-    
-    if (SUCCEEDED(hr)) {
-        // Get data pointer
-        Color* data = static_cast<Color*>(mappedResource.pData);
-        
-        // Process data with C library function
-        auto  x = 0;
-        
-        context->Unmap(stagingBuffer, 0);
-    }
-    
+
+	CorsairError err = CorsairConnect(stateChange, NULL);
+
+    MEMORYSTATUSEX memInfo;
+	memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+	while (true) {
+		GlobalMemoryStatusEx(&memInfo);
+
+		float used = memInfo.dwMemoryLoad / static_cast<float>(100);
+
+		if (corsair_ram.id[0]) {
+            // Update parameters
+            ShaderParameters params = {};
+
+            params.ledCount = corsair_ram.ledCount;
+            params.usage = used;
+            params.ticks = GetTickCount();
+            params.corsairDeviceType = corsair_ram.type;
+
+            D3D11_MAPPED_SUBRESOURCE mappedResource;
+            hr = context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+
+            if (SUCCEEDED(hr)) {
+                memcpy(mappedResource.pData, &params, sizeof(ShaderParameters));
+                context->Unmap(constantBuffer, 0);
+            }
+            else {
+                stagingBuffer->Release();
+                constantBuffer->Release();
+                outputUAV->Release();
+                outputBuffer->Release();
+                computeShader->Release();
+                if (device) device->Release();
+                if (context) context->Release();
+                return 1;
+            }
+
+            // Set up compute shader
+            context->CSSetShader(computeShader, nullptr, 0);
+            context->CSSetConstantBuffers(0, 1, &constantBuffer);
+            context->CSSetUnorderedAccessViews(0, 1, &outputUAV, nullptr);
+
+            // Dispatch compute shader
+            // Calculate how many thread groups to dispatch (each group has 256 threads)
+            UINT threadGroupCount = (20 + 255) / 256;
+            context->Dispatch(threadGroupCount, 1, 1);
+
+            // Unbind resources
+            ID3D11UnorderedAccessView* nullUAV = nullptr;
+            context->CSSetUnorderedAccessViews(0, 1, &nullUAV, nullptr);
+
+            // Copy results to staging buffer for reading
+            context->CopyResource(stagingBuffer, outputBuffer);
+
+            // Read back results
+            hr = context->Map(stagingBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
+
+            CorsairLedPosition* leds = (CorsairLedPosition*)malloc(sizeof(CorsairLedPosition) * corsair_ram.ledCount);
+            int size = 0;
+            err = CorsairGetLedPositions(corsair_ram.id, CORSAIR_DEVICE_LEDCOUNT_MAX, leds, &size);
+            if (!leds) return 1;
+
+            CorsairLedColor* colors = (CorsairLedColor*)malloc(sizeof(CorsairLedColor) * corsair_ram.ledCount);
+            if (!colors) return 1;
+            ZeroMemory(colors, sizeof(CorsairLedColor) * corsair_ram.ledCount);
+
+            if (SUCCEEDED(hr)) {
+                // Get data pointer
+                Color* data = static_cast<Color*>(mappedResource.pData);
+
+                // Process data with C library function
+                for (size_t i = 0; i < corsair_ram.ledCount; i++)
+                {
+                    colors[i].id = leds[i].id;
+                    colors[i].r = data[i].r;
+                    colors[i].g = data[i].g;
+                    colors[i].a = data[i].a;
+                }
+
+                context->Unmap(stagingBuffer, 0);
+            }
+
+			err = CorsairSetLedColors(corsair_ram.id, corsair_ram.ledCount, colors);
+		}
+		Sleep(16);
+	}
+
     // Clean up resources
     stagingBuffer->Release();
     constantBuffer->Release();
@@ -247,38 +281,4 @@ int main() {
     computeShader->Release();
     context->Release();
     device->Release();
-
-	CorsairError err = CorsairConnect(stateChange, NULL);
-
-	MEMORYSTATUSEX memInfo;
-	memInfo.dwLength = sizeof(MEMORYSTATUSEX);
-	while (true) {
-		GlobalMemoryStatusEx(&memInfo);
-
-		double used = memInfo.dwMemoryLoad / static_cast<double>(100);
-
-		if (corsair_ram.id[0]) {
-			CorsairLedPosition* leds = (CorsairLedPosition*)malloc(sizeof(CorsairLedPosition) * corsair_ram.ledCount);
-			int size = 0;
-			err = CorsairGetLedPositions(corsair_ram.id, CORSAIR_DEVICE_LEDCOUNT_MAX, leds, &size);
-
-			// TODO handle all frees and stuff
-			CorsairLedColor* colors = (CorsairLedColor*)malloc(sizeof(CorsairLedColor)*corsair_ram.ledCount);
-
-			ZeroMemory(colors, sizeof(CorsairLedColor) * corsair_ram.ledCount);
-			for (size_t i = 0; i < corsair_ram.ledCount; i++)
-			{
-				int sticks = 2;
-				int dim = ((int)(corsair_ram.ledCount / sticks));
-				double current = (float)(i % dim) / (corsair_ram.ledCount / static_cast<double>(sticks));
-
-				colors[i].id = leds[i].id;
-				colors[i].r = used > current ? 255 : 0;
-				colors[i].a = 255;
-			}
-
-			err = CorsairSetLedColors(corsair_ram.id, corsair_ram.ledCount, colors);
-		}
-		Sleep(1000);
-	}
 }

@@ -16,8 +16,8 @@ void main( uint3 DTid : SV_DispatchThreadID )
     uint i = DTid.x;
     
     // Check if we're within the data bounds
-    if (i >= ledCount)
-        return;
+	if (i >= ledCount)
+		return;
 
 	float4 color;
 	int sticks = 2;

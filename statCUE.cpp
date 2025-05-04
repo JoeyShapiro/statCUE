@@ -109,12 +109,12 @@ int main() {
     
     // Create output buffer
     D3D11_BUFFER_DESC outputDesc = {};
-    outputDesc.ByteWidth = 20 * sizeof(float);
+    outputDesc.ByteWidth = 20 * sizeof(Color);
     outputDesc.Usage = D3D11_USAGE_DEFAULT;
     outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
     outputDesc.CPUAccessFlags = 0;
     outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    outputDesc.StructureByteStride = sizeof(float);
+    outputDesc.StructureByteStride = sizeof(Color);
     
     ID3D11Buffer* outputBuffer = nullptr;
     hr = device->CreateBuffer(&outputDesc, nullptr, &outputBuffer);
@@ -147,7 +147,7 @@ int main() {
     
     // Create constant buffer for parameters
     D3D11_BUFFER_DESC constantDesc = {};
-    constantDesc.ByteWidth = 16;// sizeof(ShaderParameters);
+    constantDesc.ByteWidth = sizeof(ShaderParameters);  // TTODOOo  mmultiiplle of 16
     constantDesc.Usage = D3D11_USAGE_DYNAMIC;
     constantDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     constantDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -167,12 +167,12 @@ int main() {
     
     // Create staging buffer for reading back results
     D3D11_BUFFER_DESC stagingDesc = {};
-    stagingDesc.ByteWidth = 20 * sizeof(float);
+    stagingDesc.ByteWidth = 20 * sizeof(Color);
     stagingDesc.Usage = D3D11_USAGE_STAGING;
     stagingDesc.BindFlags = 0;
     stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
     stagingDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    stagingDesc.StructureByteStride = sizeof(float);
+    stagingDesc.StructureByteStride = sizeof(Color);
     
     ID3D11Buffer* stagingBuffer = nullptr;
     hr = device->CreateBuffer(&stagingDesc, nullptr, &stagingBuffer);

@@ -29,7 +29,10 @@ void stateChange(void* context, const CorsairSessionStateChanged* event) {
 	int size = 0;
 	CorsairDeviceInfo* devices = (CorsairDeviceInfo*)malloc(sizeof(CorsairDeviceInfo) * 3);
 	CorsairError err = CorsairGetDevices(&filter, CORSAIR_DEVICE_COUNT_MAX, devices, &size);
-	if (!devices) return;
+    if (!devices) {
+        MessageBoxA(NULL, "Couldn't to find any Corsair Devices", "Warning", MB_ICONWARNING | MB_OK);
+        return;
+    }
 
 	for (size_t i = 0; i < size; i++)
 	{
@@ -41,7 +44,7 @@ void stateChange(void* context, const CorsairSessionStateChanged* event) {
 
 int main() {
 	HWND hWnd = GetConsoleWindow();
-	ShowWindow(hWnd, SW_HIDE);
+    ShowWindow(hWnd, SW_HIDE);
 
 	ID3D11Device* device = nullptr;
 	ID3D11DeviceContext* context = nullptr;
@@ -62,6 +65,7 @@ int main() {
 	);
     
     if (FAILED(hr)) {
+        MessageBoxA(NULL, "Failed to create DirectX Device", "Error", MB_ICONERROR | MB_OK);
         return 1;
     }
     
@@ -82,6 +86,8 @@ int main() {
     );
     
     if (FAILED(hr)) {
+        MessageBoxA(NULL, "Failed to compile ComputeShader.hlsl", "Error", MB_ICONERROR | MB_OK);
+
         if (errorBlob) {
             errorBlob->Release();
         }
@@ -102,6 +108,8 @@ int main() {
     shaderBlob->Release();
     
     if (FAILED(hr)) {
+        MessageBoxA(NULL, "Device failed to create Compute Shader", "Error", MB_ICONERROR | MB_OK);
+
         if (device) device->Release();
         if (context) context->Release();
         return 1;
@@ -120,6 +128,8 @@ int main() {
     hr = device->CreateBuffer(&outputDesc, nullptr, &outputBuffer);
     
     if (FAILED(hr)) {
+        MessageBoxA(NULL, "Device failed to Create Buffer", "Error", MB_ICONERROR | MB_OK);
+
         computeShader->Release();
         if (device) device->Release();
         if (context) context->Release();
@@ -138,6 +148,8 @@ int main() {
     hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAV);
     
     if (FAILED(hr)) {
+        MessageBoxA(NULL, "Device failed to create unordered access view", "Error", MB_ICONERROR | MB_OK);
+
         outputBuffer->Release();
         computeShader->Release();
         if (device) device->Release();
@@ -157,6 +169,8 @@ int main() {
     hr = device->CreateBuffer(&constantDesc, nullptr, &constantBuffer);
     
     if (FAILED(hr)) {
+        MessageBoxA(NULL, "Device failed to create constant buffer", "Error", MB_ICONERROR | MB_OK);
+
         outputUAV->Release();
         outputBuffer->Release();
         computeShader->Release();
@@ -178,6 +192,8 @@ int main() {
     hr = device->CreateBuffer(&stagingDesc, nullptr, &stagingBuffer);
     
     if (FAILED(hr)) {
+        MessageBoxA(NULL, "Device failed to create staging buffer", "Error", MB_ICONERROR | MB_OK);
+
         constantBuffer->Release();
         outputUAV->Release();
         outputBuffer->Release();
@@ -213,6 +229,8 @@ int main() {
                 context->Unmap(constantBuffer, 0);
             }
             else {
+                MessageBoxA(NULL, "Context failed to map constant resources", "Error", MB_ICONERROR | MB_OK);
+
                 stagingBuffer->Release();
                 constantBuffer->Release();
                 outputUAV->Release();
@@ -246,10 +264,16 @@ int main() {
             CorsairLedPosition* leds = (CorsairLedPosition*)malloc(sizeof(CorsairLedPosition) * corsair_ram.ledCount);
             int size = 0;
             err = CorsairGetLedPositions(corsair_ram.id, CORSAIR_DEVICE_LEDCOUNT_MAX, leds, &size);
-            if (!leds) return 1;
+            if (!leds) {
+                MessageBoxA(NULL, "Corsair failed to get device LEDs", "Error", MB_ICONERROR | MB_OK);
+                return 1;
+            }
 
             CorsairLedColor* colors = (CorsairLedColor*)malloc(sizeof(CorsairLedColor) * corsair_ram.ledCount);
-            if (!colors) return 1;
+            if (!colors) {
+                MessageBoxA(NULL, "This error is here because, somehow, malloc failed. Download more RAM lol", "Error", MB_ICONERROR | MB_OK);
+                return 1;
+            }
             ZeroMemory(colors, sizeof(CorsairLedColor) * corsair_ram.ledCount);
 
             if (SUCCEEDED(hr)) {
@@ -266,6 +290,10 @@ int main() {
                 }
 
                 context->Unmap(stagingBuffer, 0);
+            }
+            else {
+                MessageBoxA(NULL, "Failed to read staging buffer", "Error", MB_ICONERROR | MB_OK);
+                return 1;
             }
 
 			err = CorsairSetLedColors(corsair_ram.id, corsair_ram.ledCount, colors);

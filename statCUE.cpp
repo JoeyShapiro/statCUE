@@ -53,6 +53,11 @@ void stateChange(void* context, const CorsairSessionStateChanged* event) {
 
 
 		leds = (CorsairLedPosition*)malloc(sizeof(CorsairLedPosition) * corsair_ram.ledCount);
+		if (!leds) {
+			MessageBoxA(NULL, "This error is here because, somehow, malloc failed. Download more RAM lol", "Error", MB_ICONERROR | MB_OK);
+			ExitProcess(1);
+		}
+
 		int size = 0;
 		err = CorsairGetLedPositions(corsair_ram.id, CORSAIR_DEVICE_LEDCOUNT_MAX, leds, &size);
 		if (err != CE_Success) {
@@ -118,9 +123,7 @@ int main() {
     if (FAILED(hr)) {
         MessageBoxA(NULL, "Failed to compile ComputeShader.hlsl", "Error", MB_ICONERROR | MB_OK);
 
-        if (errorBlob) {
-            errorBlob->Release();
-        }
+        if (errorBlob) errorBlob->Release();
         if (device) device->Release();
         if (context) context->Release();
         return 1;
@@ -233,7 +236,13 @@ int main() {
         return 1;
     }
 
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+
 	CorsairError err = CorsairConnect(stateChange, NULL);
+	if (err != CE_Success) {
+		MessageBoxA(NULL, "Failed to connect to iCUE SDK", "Error", MB_ICONERROR | MB_OK);
+		return 1;
+	}
 
     MEMORYSTATUSEX memInfo;
 	memInfo.dwLength = sizeof(MEMORYSTATUSEX);
@@ -251,7 +260,6 @@ int main() {
 			.corsairDeviceType = corsair_ram.type
 		};
 
-		D3D11_MAPPED_SUBRESOURCE mappedResource;
 		hr = context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 		if (FAILED(hr)) {
 			MessageBoxA(NULL, "Context failed to map constant resources", "Error", MB_ICONERROR | MB_OK);
@@ -276,8 +284,8 @@ int main() {
 
 		// Dispatch compute shader
 		// Calculate how many thread groups to dispatch (each group has 256 threads)
-		UINT threadGroupCount = (20 + 255) / 256;
-		context->Dispatch(threadGroupCount, 1, 1);
+		// UINT threadGroupCount = (20 + 255) / 256;
+		context->Dispatch(1, 1, 1);
 
 		// Unbind resources
 		ID3D11UnorderedAccessView* nullUAV = nullptr;
@@ -290,11 +298,6 @@ int main() {
 		hr = context->Map(stagingBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
 		if (FAILED(hr)) {
 			MessageBoxA(NULL, "Failed to read staging buffer", "Error", MB_ICONERROR | MB_OK);
-			return 1;
-		}
-
-		if (!leds) {
-			MessageBoxA(NULL, "Corsair failed to get device LEDs", "Error", MB_ICONERROR | MB_OK);
 			return 1;
 		}
 

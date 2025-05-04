@@ -1,3 +1,4 @@
+// TODO add config to this
 RWStructuredBuffer<float4> OutputBuffer : register(u0);
 
 // Parameters for the shader

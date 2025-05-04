@@ -107,10 +107,10 @@ int main() {
     // Load and compile the compute shader
     ID3DBlob* shaderBlob = nullptr;
     ID3DBlob* errorBlob = nullptr;
-    
+
     hr = D3DCompileFromFile(
         L"ComputeShader.hlsl",
-        nullptr,
+        nullptr, // macros
         D3D_COMPILE_STANDARD_FILE_INCLUDE,
         "main",
         "cs_5_0",
@@ -247,7 +247,7 @@ int main() {
     MEMORYSTATUSEX memInfo;
 	memInfo.dwLength = sizeof(MEMORYSTATUSEX);
 	while (true) {
-		Sleep(16);
+		Sleep(16); // TODO allow option to change this value
 		if (!corsair_ram.id[0]) continue;
 		
 		GlobalMemoryStatusEx(&memInfo);

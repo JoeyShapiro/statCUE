@@ -39,30 +39,37 @@ void stateChange(void* context, const CorsairSessionStateChanged* event) {
         return;
     }
 
+	// TODO add structure for multiple devices support
 	for (size_t i = 0; i < size; i++)
 	{
 		if (devices[i].type != CDT_MemoryModule) continue;
 
-		corsair_ram = devices[i];
+		// copy device info to global variable
+		corsair_ram.type = devices[i].type;
+		corsair_ram.id[0] = 0;
+		corsair_ram.ledCount = devices[i].ledCount;
+		corsair_ram.channelCount = devices[i].channelCount;
+		strncpy_s(corsair_ram.id, devices[i].id, CORSAIR_STRING_SIZE_M);
+
 
 		leds = (CorsairLedPosition*)malloc(sizeof(CorsairLedPosition) * corsair_ram.ledCount);
 		int size = 0;
 		err = CorsairGetLedPositions(corsair_ram.id, CORSAIR_DEVICE_LEDCOUNT_MAX, leds, &size);
 		if (err != CE_Success) {
 			MessageBoxA(NULL, "Failed to get LED positions", "Error", MB_ICONERROR | MB_OK);
-			return;
 		}
 		if (size != corsair_ram.ledCount) {
 			MessageBoxA(NULL, "Failed to get LED positions", "Error", MB_ICONERROR | MB_OK);
-			return;
 		}
 
 		colors = (CorsairLedColor*)malloc(sizeof(CorsairLedColor) * corsair_ram.ledCount);
 		if (!colors) {
 			MessageBoxA(NULL, "This error is here because, somehow, malloc failed. Download more RAM lol", "Error", MB_ICONERROR | MB_OK);
-			return;
+			ExitProcess(1);
 		}
 	}
+
+	if (devices) free(devices);
 }
 
 int main() {

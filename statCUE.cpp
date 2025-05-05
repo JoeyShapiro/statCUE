@@ -9,6 +9,13 @@ static CorsairDeviceInfo corsair_ram;
 static CorsairLedPosition* leds = nullptr;
 static CorsairLedColor* colors = nullptr;
 
+static ID3D11Device* device = nullptr;
+static ID3D11DeviceContext* d11context = nullptr;
+static ID3D11Buffer* outputBuffer = nullptr;
+static ID3D11UnorderedAccessView* outputUAV = nullptr;
+static ID3D11Buffer* constantBuffer = nullptr;
+static ID3D11Buffer* stagingBuffer = nullptr;
+
 struct ShaderParameters {
     UINT ledCount;
     float usage;
@@ -22,6 +29,73 @@ struct Color {
     float b;
     float a;
 };
+
+bool setupShaderBuffers() {
+	if (stagingBuffer) stagingBuffer->Release();
+	if (constantBuffer) constantBuffer->Release();
+	if (outputUAV) outputUAV->Release();
+	if (outputBuffer) outputBuffer->Release();
+
+	// Create output buffer
+	D3D11_BUFFER_DESC outputDesc = {};
+	outputDesc.ByteWidth = corsair_ram.ledCount * sizeof(Color);
+	outputDesc.Usage = D3D11_USAGE_DEFAULT;
+	outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	outputDesc.CPUAccessFlags = 0;
+	outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	outputDesc.StructureByteStride = sizeof(Color);
+
+	HRESULT hr = device->CreateBuffer(&outputDesc, nullptr, &outputBuffer);
+	if (FAILED(hr)) {
+		MessageBoxA(NULL, "Device failed to Create Buffer", "Error", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// Create UAV for output buffer
+	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	uavDesc.Buffer.FirstElement = 0;
+	uavDesc.Buffer.NumElements = corsair_ram.ledCount;
+	uavDesc.Buffer.Flags = 0;
+
+	hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAV);
+	if (FAILED(hr)) {
+		MessageBoxA(NULL, "Device failed to create unordered access view", "Error", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// Create constant buffer for parameters
+	D3D11_BUFFER_DESC constantDesc = {};
+	constantDesc.ByteWidth = sizeof(ShaderParameters);  // TTODOOo  mmultiiplle of 16
+	constantDesc.Usage = D3D11_USAGE_DYNAMIC;
+	constantDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	constantDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	constantDesc.MiscFlags = 0;
+
+	hr = device->CreateBuffer(&constantDesc, nullptr, &constantBuffer);
+	if (FAILED(hr)) {
+		MessageBoxA(NULL, "Device failed to create constant buffer", "Error", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// Create staging buffer for reading back results
+	D3D11_BUFFER_DESC stagingDesc = {};
+	stagingDesc.ByteWidth = corsair_ram.ledCount * sizeof(Color);
+	stagingDesc.Usage = D3D11_USAGE_STAGING;
+	stagingDesc.BindFlags = 0;
+	stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	stagingDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	stagingDesc.StructureByteStride = sizeof(Color);
+
+	hr = device->CreateBuffer(&stagingDesc, nullptr, &stagingBuffer);
+	if (FAILED(hr)) {
+		MessageBoxA(NULL, "Device failed to create staging buffer", "Error", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	return true;
+}
 
 void stateChange(void* context, const CorsairSessionStateChanged* event) {
 	if (event->state != CSS_Connected) return;
@@ -55,6 +129,14 @@ void stateChange(void* context, const CorsairSessionStateChanged* event) {
 		leds = (CorsairLedPosition*)malloc(sizeof(CorsairLedPosition) * corsair_ram.ledCount);
 		if (!leds) {
 			MessageBoxA(NULL, "This error is here because, somehow, malloc failed. Download more RAM lol", "Error", MB_ICONERROR | MB_OK);
+
+			if (stagingBuffer) stagingBuffer->Release();
+			if (constantBuffer) constantBuffer->Release();
+			if (outputUAV) outputUAV->Release();
+			if (outputBuffer) outputBuffer->Release();
+			if (d11context) d11context->Release();
+			if (device) device->Release();
+
 			ExitProcess(1);
 		}
 
@@ -70,6 +152,25 @@ void stateChange(void* context, const CorsairSessionStateChanged* event) {
 		colors = (CorsairLedColor*)malloc(sizeof(CorsairLedColor) * corsair_ram.ledCount);
 		if (!colors) {
 			MessageBoxA(NULL, "This error is here because, somehow, malloc failed. Download more RAM lol", "Error", MB_ICONERROR | MB_OK);
+
+			if (stagingBuffer) stagingBuffer->Release();
+			if (constantBuffer) constantBuffer->Release();
+			if (outputUAV) outputUAV->Release();
+			if (outputBuffer) outputBuffer->Release();
+			if (d11context) d11context->Release();
+			if (device) device->Release();
+
+			ExitProcess(1);
+		}
+
+		if (!setupShaderBuffers()) {
+			if (stagingBuffer) stagingBuffer->Release();
+			if (constantBuffer) constantBuffer->Release();
+			if (outputUAV) outputUAV->Release();
+			if (outputBuffer) outputBuffer->Release();
+			if (d11context) d11context->Release();
+			if (device) device->Release();
+
 			ExitProcess(1);
 		}
 	}
@@ -81,8 +182,6 @@ int main() {
 	HWND hWnd = GetConsoleWindow();
     ShowWindow(hWnd, SW_HIDE);
 
-	ID3D11Device* device = nullptr;
-	ID3D11DeviceContext* context = nullptr;
 	D3D_FEATURE_LEVEL featureLevel;
 	UINT flags = 0;
 
@@ -96,7 +195,7 @@ int main() {
 		D3D11_SDK_VERSION,
 		&device,
 		&featureLevel,
-		&context
+		&d11context
 	);
     
     if (FAILED(hr)) {
@@ -125,7 +224,7 @@ int main() {
 
         if (errorBlob) errorBlob->Release();
         if (device) device->Release();
-        if (context) context->Release();
+        if (d11context) d11context->Release();
         return 1;
     }
     
@@ -144,98 +243,10 @@ int main() {
         MessageBoxA(NULL, "Device failed to create Compute Shader", "Error", MB_ICONERROR | MB_OK);
 
         if (device) device->Release();
-        if (context) context->Release();
+        if (d11context) d11context->Release();
         return 1;
     }
     
-    // Create output buffer
-    D3D11_BUFFER_DESC outputDesc = {};
-    outputDesc.ByteWidth = 20 * sizeof(Color);
-    outputDesc.Usage = D3D11_USAGE_DEFAULT;
-    outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
-    outputDesc.CPUAccessFlags = 0;
-    outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    outputDesc.StructureByteStride = sizeof(Color);
-    
-    ID3D11Buffer* outputBuffer = nullptr;
-    hr = device->CreateBuffer(&outputDesc, nullptr, &outputBuffer);
-    
-    if (FAILED(hr)) {
-        MessageBoxA(NULL, "Device failed to Create Buffer", "Error", MB_ICONERROR | MB_OK);
-
-        computeShader->Release();
-        if (device) device->Release();
-        if (context) context->Release();
-        return 1;
-    }
-    
-    // Create UAV for output buffer
-    D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-    uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-    uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-    uavDesc.Buffer.FirstElement = 0;
-    uavDesc.Buffer.NumElements = 20;
-    uavDesc.Buffer.Flags = 0;
-    
-    ID3D11UnorderedAccessView* outputUAV = nullptr;
-    hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAV);
-    
-    if (FAILED(hr)) {
-        MessageBoxA(NULL, "Device failed to create unordered access view", "Error", MB_ICONERROR | MB_OK);
-
-        outputBuffer->Release();
-        computeShader->Release();
-        if (device) device->Release();
-        if (context) context->Release();
-        return 1;
-    }
-    
-    // Create constant buffer for parameters
-    D3D11_BUFFER_DESC constantDesc = {};
-    constantDesc.ByteWidth = sizeof(ShaderParameters);  // TTODOOo  mmultiiplle of 16
-    constantDesc.Usage = D3D11_USAGE_DYNAMIC;
-    constantDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    constantDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    constantDesc.MiscFlags = 0;
-    
-    ID3D11Buffer* constantBuffer = nullptr;
-    hr = device->CreateBuffer(&constantDesc, nullptr, &constantBuffer);
-    
-    if (FAILED(hr)) {
-        MessageBoxA(NULL, "Device failed to create constant buffer", "Error", MB_ICONERROR | MB_OK);
-
-        outputUAV->Release();
-        outputBuffer->Release();
-        computeShader->Release();
-        if (device) device->Release();
-        if (context) context->Release();
-        return 1;
-    }
-    
-    // Create staging buffer for reading back results
-    D3D11_BUFFER_DESC stagingDesc = {};
-    stagingDesc.ByteWidth = 20 * sizeof(Color);
-    stagingDesc.Usage = D3D11_USAGE_STAGING;
-    stagingDesc.BindFlags = 0;
-    stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-    stagingDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    stagingDesc.StructureByteStride = sizeof(Color);
-    
-    ID3D11Buffer* stagingBuffer = nullptr;
-    hr = device->CreateBuffer(&stagingDesc, nullptr, &stagingBuffer);
-    
-    if (FAILED(hr)) {
-        MessageBoxA(NULL, "Device failed to create staging buffer", "Error", MB_ICONERROR | MB_OK);
-
-        constantBuffer->Release();
-        outputUAV->Release();
-        outputBuffer->Release();
-        computeShader->Release();
-        if (device) device->Release();
-        if (context) context->Release();
-        return 1;
-    }
-
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 
 	CorsairError err = CorsairConnect(stateChange, NULL);
@@ -253,52 +264,43 @@ int main() {
 		GlobalMemoryStatusEx(&memInfo);
 
 		// Update parameters
-		ShaderParameters params = {
-			.ledCount = corsair_ram.ledCount,
-			.usage = memInfo.dwMemoryLoad / static_cast<float>(100),
-			.ticks = GetTickCount(),
-			.corsairDeviceType = corsair_ram.type
-		};
+		ShaderParameters params = {};
+		params.ledCount = corsair_ram.ledCount;
+		params.usage = memInfo.dwMemoryLoad / static_cast<float>(100);
+		params.ticks = GetTickCount();
+		params.corsairDeviceType = corsair_ram.type;
 
-		hr = context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+		hr = d11context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 		if (FAILED(hr)) {
 			MessageBoxA(NULL, "Context failed to map constant resources", "Error", MB_ICONERROR | MB_OK);
-
-			stagingBuffer->Release();
-			constantBuffer->Release();
-			outputUAV->Release();
-			outputBuffer->Release();
-			computeShader->Release();
-			if (device) device->Release();
-			if (context) context->Release();
-			return 1;
+			break;
 		}
 
 		memcpy(mappedResource.pData, &params, sizeof(ShaderParameters));
-		context->Unmap(constantBuffer, 0);
+		d11context->Unmap(constantBuffer, 0);
 
 		// Set up compute shader
-		context->CSSetShader(computeShader, nullptr, 0);
-		context->CSSetConstantBuffers(0, 1, &constantBuffer);
-		context->CSSetUnorderedAccessViews(0, 1, &outputUAV, nullptr);
+		d11context->CSSetShader(computeShader, nullptr, 0);
+		d11context->CSSetConstantBuffers(0, 1, &constantBuffer);
+		d11context->CSSetUnorderedAccessViews(0, 1, &outputUAV, nullptr);
 
 		// Dispatch compute shader
 		// Calculate how many thread groups to dispatch (each group has 256 threads)
 		// UINT threadGroupCount = (20 + 255) / 256;
-		context->Dispatch(1, 1, 1);
+		d11context->Dispatch(1, 1, 1);
 
 		// Unbind resources
 		ID3D11UnorderedAccessView* nullUAV = nullptr;
-		context->CSSetUnorderedAccessViews(0, 1, &nullUAV, nullptr);
+		d11context->CSSetUnorderedAccessViews(0, 1, &nullUAV, nullptr);
 
 		// Copy results to staging buffer for reading
-		context->CopyResource(stagingBuffer, outputBuffer);
+		d11context->CopyResource(stagingBuffer, outputBuffer);
 
 		// Read back results
-		hr = context->Map(stagingBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
+		hr = d11context->Map(stagingBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
 		if (FAILED(hr)) {
 			MessageBoxA(NULL, "Failed to read staging buffer", "Error", MB_ICONERROR | MB_OK);
-			return 1;
+			break;
 		}
 
 		// Get data pointer
@@ -308,20 +310,21 @@ int main() {
 			colors[i].id = leds[i].id;
 			colors[i].r = data[i].r;
 			colors[i].g = data[i].g;
+			colors[i].b = data[i].b;
 			colors[i].a = data[i].a;
 		}
 
-		context->Unmap(stagingBuffer, 0);
+		d11context->Unmap(stagingBuffer, 0);
 
 		err = CorsairSetLedColors(corsair_ram.id, corsair_ram.ledCount, colors);
 	}
 
     // Clean up resources
-    stagingBuffer->Release();
-    constantBuffer->Release();
-    outputUAV->Release();
-    outputBuffer->Release();
-    computeShader->Release();
-    context->Release();
-    device->Release();
+	if (stagingBuffer) stagingBuffer->Release();
+    if (constantBuffer) constantBuffer->Release();
+    if (outputUAV) outputUAV->Release();
+    if (outputBuffer) outputBuffer->Release();
+	if (computeShader) computeShader->Release();
+    if (d11context) d11context->Release();
+    if (device) device->Release();
 }

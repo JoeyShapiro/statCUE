@@ -307,6 +307,7 @@ int main() {
 		Color* data = static_cast<Color*>(mappedResource.pData);
 		for (size_t i = 0; i < corsair_ram.ledCount; i++)
 		{
+			// TODO uses float values, need to convert to 0-255 range
 			colors[i].id = leds[i].id;
 			colors[i].r = data[i].r;
 			colors[i].g = data[i].g;

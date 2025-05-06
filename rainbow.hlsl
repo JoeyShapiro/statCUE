@@ -36,7 +36,7 @@ void main( uint3 DTid : SV_DispatchThreadID )
     // Normalized pixel coordinates (from 0 to 1)
     float uv = i/ledCount;
     // Time varying pixel color
-    float3 col = 0.5 + 0.5*cos((ticks/1000)+uv+float3(0,2,4));
+    float3 col = 0.5 + 0.5*cos((ticks/100)+ (current*3) +float3(0,2,4));
 
 	color.r = usage > current ? col.r * 255 : 0;
 	color.g = usage > current ? col.g * 255 : 0;

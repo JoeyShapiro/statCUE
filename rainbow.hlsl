@@ -24,19 +24,12 @@ void main( uint3 DTid : SV_DispatchThreadID )
 	int dim = ((int)(ledCount / sticks));
 	float current = (float)(i % dim) / (ledCount / (sticks));
 
-    // maybe from same DTid
-    // but everythin else works
-    // so why are they all the same color
-    // if the same thread id was used, then it would go to the same spot
-
-    // time
-    // index
-    // wrong axis
-
     // Normalized pixel coordinates (from 0 to 1)
     float uv = i/ledCount;
-    // Time varying pixel color
-    float3 col = 0.5 + 0.5*cos((ticks/100)+ (current*3) +float3(0,2,4));
+    // Time varying pixel color, ticks has to be 1000f
+	// still feels too slow
+	// TODO start of rainbow should be at usage
+    float3 col = 0.5 + 0.5*cos((ticks/1000.0) + current + float3(0,2,4));
 
 	color.r = usage > current ? col.r * 255 : 0;
 	color.g = usage > current ? col.g * 255 : 0;

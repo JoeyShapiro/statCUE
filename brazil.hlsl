@@ -1,3 +1,4 @@
+// TODO add config to this
 RWStructuredBuffer<float4> OutputBuffer : register(u0);
 
 // Parameters for the shader
@@ -20,21 +21,19 @@ void main( uint3 DTid : SV_DispatchThreadID )
 		return;
 
 	float4 color;
-	int sticks = 2;
-	int dim = ((int)(ledCount / sticks));
-	float current = (float)(i % dim) / (ledCount / (sticks));
-
-    // Normalized pixel coordinates (from 0 to 1)
-    float uv = i/ledCount;
-    // Time varying pixel color, ticks has to be 1000f
-	// still feels too slow
-	// whole loop is in usage range
-    float3 col = 0.5 + 0.5*cos((ticks/1000.0) + current/usage + float3(0,2,4));
-
-	color.r = usage > current ? col.r * 255 : 0;
-	color.g = usage > current ? col.g * 255 : 0;
-	color.b = usage > current ? col.b * 255 : 0;
-	color.a = 255;
+    color.r = 0;
+    color.g = 0;
+    color.b = 0;
+    color.a = 255;
+    
+    if (usage <= 0.25) {
+        color.g = 255;
+    } else if (usage <= 0.5) {
+        color.b = 255;
+    } else {
+        color.r = 255;
+        color.g = 255;
+    }
 
 	OutputBuffer[i] = color;
 }

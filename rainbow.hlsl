@@ -31,9 +31,10 @@ void main( uint3 DTid : SV_DispatchThreadID )
 	// whole loop is in usage range
     float3 col = 0.5 + 0.5*cos((ticks/1000.0) + current/usage + float3(0,2,4));
 
-	color.r = usage > current ? col.r * 255 : 0;
-	color.g = usage > current ? col.g * 255 : 0;
-	color.b = usage > current ? col.b * 255 : 0;
+	// Returns 1 if usage >= current, 0 otherwise (close enough)
+	float mask = step(current, usage) * 255;
+
+	color.rgb = col * mask;
 	color.a = 255;
 
 	OutputBuffer[i] = color;

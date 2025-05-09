@@ -124,8 +124,6 @@ void stateChange(void* context, const CorsairSessionStateChanged* event) {
 		corsair_ram.id[0] = 0;
 		corsair_ram.ledCount = devices[i].ledCount;
 		corsair_ram.channelCount = devices[i].channelCount;
-		strncpy_s(corsair_ram.id, devices[i].id, CORSAIR_STRING_SIZE_M);
-
 
 		leds = (CorsairLedPosition*)malloc(sizeof(CorsairLedPosition) * corsair_ram.ledCount);
 		if (!leds) {
@@ -142,7 +140,7 @@ void stateChange(void* context, const CorsairSessionStateChanged* event) {
 		}
 
 		int size = 0;
-		err = CorsairGetLedPositions(corsair_ram.id, CORSAIR_DEVICE_LEDCOUNT_MAX, leds, &size);
+		err = CorsairGetLedPositions(devices[i].id, CORSAIR_DEVICE_LEDCOUNT_MAX, leds, &size);
 		if (err != CE_Success) {
 			MessageBoxA(NULL, "Failed to get LED positions", "Error", MB_ICONERROR | MB_OK);
 		}
@@ -174,6 +172,9 @@ void stateChange(void* context, const CorsairSessionStateChanged* event) {
 
 			ExitProcess(1);
 		}
+
+		// do this after to handle race conditions
+		strncpy_s(corsair_ram.id, devices[i].id, CORSAIR_STRING_SIZE_M);
 	}
 
 	if (devices) free(devices);
@@ -259,7 +260,7 @@ int main() {
     MEMORYSTATUSEX memInfo;
 	memInfo.dwLength = sizeof(MEMORYSTATUSEX);
 	while (true) {
-		Sleep(16); // TODO allow option to change this value
+		Sleep(1000/30); // TODO allow option to change this value
 		if (!corsair_ram.id[0]) continue;
 		
 		GlobalMemoryStatusEx(&memInfo);

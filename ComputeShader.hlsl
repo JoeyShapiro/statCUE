@@ -8,6 +8,7 @@ cbuffer Parameters : register(b0)
 	float usage;
     dword ticks;         // Time value for animation or processing
 	int  corsairDeviceType;
+	int channels;
 };
 
 [numthreads(20, 1, 1)]
@@ -21,9 +22,8 @@ void main( uint3 DTid : SV_DispatchThreadID )
 		return;
 
 	float4 color;
-	int sticks = 2;
-	int dim = ((int)(ledCount / sticks));
-	float current = (float)(i % dim) / (ledCount / (sticks));
+	int dim = ((int)(ledCount / channels));
+	float current = (float)(i % dim) / (ledCount / (channels));
 
 	color.r = usage > current ? 255 : 0;
 	color.g = 0;

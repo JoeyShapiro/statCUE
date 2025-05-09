@@ -21,6 +21,7 @@ struct ShaderParameters {
     float usage;
     DWORD ticks;
     int corsairDeviceType;
+	int channels;
 };
 
 struct Color {
@@ -67,7 +68,7 @@ bool setupShaderBuffers() {
 
 	// Create constant buffer for parameters
 	D3D11_BUFFER_DESC constantDesc = {};
-	constantDesc.ByteWidth = sizeof(ShaderParameters);  // TTODOOo  mmultiiplle of 16
+	constantDesc.ByteWidth = (sizeof(ShaderParameters) + 15) & ~15; // Align to 16 bytes
 	constantDesc.Usage = D3D11_USAGE_DYNAMIC;
 	constantDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	constantDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -269,6 +270,7 @@ int main() {
 		params.usage = memInfo.dwMemoryLoad / static_cast<float>(100);
 		params.ticks = GetTickCount();
 		params.corsairDeviceType = corsair_ram.type;
+		params.channels = corsair_ram.channelCount;
 
 		hr = d11context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 		if (FAILED(hr)) {

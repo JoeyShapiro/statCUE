@@ -8,6 +8,7 @@ cbuffer Parameters : register(b0)
 	float usage;
     dword ticks;         // Time value for animation or processing
 	int  corsairDeviceType;
+    int channels;
 };
 
 [numthreads(20, 1, 1)]
@@ -25,10 +26,11 @@ void main( uint3 DTid : SV_DispatchThreadID )
     color.g = 0;
     color.b = 0;
     color.a = 255;
-    
-    if (usage <= 0.25) {
+
+    float uv = i/ledCount;
+    if (uv <= 0.33) {
         color.g = 255;
-    } else if (usage <= 0.5) {
+    } else if (uv <= 0.66) {
         color.b = 255;
     } else {
         color.r = 255;

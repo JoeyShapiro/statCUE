@@ -10,3 +10,8 @@ corsair only supports windows and mac,
 and the parts i use are only for PC (windows or linux)
 so windows only
 so i will use HLSL and Direct X
+
+## TODO
+- handle multiple devices
+- change color range to 0 - 1
+- let the user set the "fps" and other stuff in the shader file

@@ -5,6 +5,8 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
+#define FPS 30
+
 static CorsairDeviceInfo corsair_ram;
 static CorsairLedPosition* leds = nullptr;
 static CorsairLedColor* colors = nullptr;
@@ -260,7 +262,7 @@ int main() {
     MEMORYSTATUSEX memInfo;
 	memInfo.dwLength = sizeof(MEMORYSTATUSEX);
 	while (true) {
-		Sleep(1000/30); // TODO allow option to change this value
+		Sleep(1000/FPS); // TODO allow option to change this value
 		if (!corsair_ram.id[0]) continue;
 		
 		GlobalMemoryStatusEx(&memInfo);

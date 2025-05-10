@@ -11,6 +11,9 @@ and the parts i use are only for PC (windows or linux)
 so windows only
 so i will use HLSL and Direct X
 
+i could add another in/out for the config, but i really dont need that
+but i dont feel like parsing c strings
+
 ## TODO
 - handle multiple devices
 - change color range to 0 - 1

@@ -27,7 +27,7 @@ void main( uint3 DTid : SV_DispatchThreadID )
     color.b = 0;
     color.a = 255;
 
-    float uv = i/ledCount;
+    float uv = (float)i/(float)ledCount;
     if (uv <= 0.33) {
         color.g = 255;
     } else if (uv <= 0.66) {
